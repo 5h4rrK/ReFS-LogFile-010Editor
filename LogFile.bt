@@ -1,0 +1,167 @@
+typedef enum <UINT64> {
+    CONTROL = 1,
+    DATA = 2
+} LogTypeCheck;
+
+
+int isMLog(void) {
+    local char sig[4];
+    ReadBytes(sig, FTell(), 4);
+    if (Memcmp(sig, "MLog", 4) == 0) {
+        return 1;
+    }
+    return 0;
+}
+
+int readNextIntBytes() {
+    return ReadUInt(FTell());
+}
+
+int skipCheck1(int val) {
+    local UINT32 store_pos = FTell();
+    FSkip((val));
+    local UINT32 s2sz = readNextIntBytes();
+    FSeek(store_pos);
+    if (s2sz == 0x38) { return 1;}
+    return 0;
+}
+
+
+int getNoOfEntries(void) {
+    local UINT32 ssz = readNextIntBytes();
+    local int entries = ((ssz - 56 ) / 8);
+    local UINT32 val = readNextIntBytes();
+    return entries;
+}
+
+typedef struct REFS_CONTROL_LOG {
+    UINT64 seqno<name = "SequenceNo">;
+    UINT64 startoff<name = "StartOffset">;
+    UINT64 endoff<name = "EndOffset">;
+    UINT64 nextlsn<name = "NextLSN">;
+    UINT64 prevlsn<name = "PrevLSN">;
+    GUID loguuid <name = "UUID", fgcolor = cGreen >;
+    UINT32 control <name = "Control">;
+    UINT32 unk1 <name = "Unknown1">;
+    UINT64 unk2 <name = "Unknown2">;
+    UINT64 unk3 <name = "Unknown3">;
+
+};
+
+struct REFS_ENTRY_HEADER {
+    typedef char CustString[4];
+    CustString SIGNATURE <name = "Signature", fgcolor = 0x14D64A >;
+    UINT32 entryid <name = "EntryId" >;
+    UINT32 unk1 <name = "Unknown1">;
+    UINT32 entrysize <name = "EntrySize">;
+    GUID loguuid <name = "UUID">;
+    UINT32 control <name = "Control">;
+    UINT32 unk2 <name = "Unknown2">;
+    UINT64 curr_lsn <name = "CurrentLSN", fgcolor = 0xB110C4>;
+    UINT64 prev_lsn <name = "PreviousLSN", fgcolor = 0xB110C4>;
+    typedef UBYTE unkBuff[28];
+    unkBuff unk3<name = "Unknown3">;
+    UINT32 entry_header_sz <name = "EntryHeaderSize">;
+    typedef UBYTE unknBuff[32];
+    unknBuff unk4<name = "Unknown4">;
+};
+
+struct REFS_LOG_ENTRY_HEADER {
+    UINT64 curr_lsn <name = "CurrentLSN", fgcolor = 0xB110C4>;
+    UINT64 checksum <name = "CheckSum">;
+    UINT32 unk1 <name = "Unknown1">;
+    UINT32 unk2 <name = "Unknown2">;
+    UINT64 prev_lsn <name = "PreviousLSN", fgcolor = 0xB110C4>;
+    UINT32 data_area <name = "DataAreaSize">;
+    UINT32 unk3 <name = "Unknown3">;
+    UINT32 loghdrsz <name = "LogHeaderSize">;
+    UINT32 logrecsz <name = "LogRecordSize">;
+    LogTypeCheck type <name = "LogType", fgcolor = 0xC212C0>;
+};
+
+struct REFS_REDO_STRUCTURE_SIZE {
+    UINT32 totalrecsize<name = "StructureSize", fgcolor = 0xD61472>;
+    UINT32 flags<name = "Flags">;
+};
+
+struct REFS_REDO_LOG {
+    UINT32 redorecsize<name = "RedoRecordSize", fgcolor = 0xcc1da8>;
+    UINT32 opcode<name = "Opcode", fgcolor = 0x6932a8>;
+    UINT32 tablekeyscnt<name = "TableKeysCount">;
+    UINT32 tablekeysoff<name = "TableKeyOffset">;
+    UINT32 valcnt<name = "ValueCount">;
+    UINT32 valoff<name = "ValueOffset">;
+    UINT64 unkn1<name = "Unknown1">;
+    UINT64 unkn2<name = "Unknown2">;
+    UINT32 unkn3<name = "Unknown3">;
+    UINT32 redomark<name = "RedoMark">;
+    UINT32 seqno<name = "SequenceNo">;
+    UINT32 endmark<name = "EndMark">;
+
+    typedef struct REDO_TRANSACTION {
+        local int prevpos = FTell();
+        UINT32 dataoff <name = "DataOffset", fgcolor = 0x10C428>;
+        UINT32 datasz <name = "DataSize", fgcolor = 0x10C428>;
+        local int currpos = FTell();
+        FSeek(prevpos);
+        FSeek(startof(parentof(this)) + dataoff);
+        UBYTE TRANSACTION[datasz]<name = "TransactionRecord">;
+        FSeek(currpos);
+    };
+
+    REDO_TRANSACTION RedoArrayEntry[getNoOfEntries()] <name = "RedoArrayEntry", optimize = false, open = false >;
+    FSeek(startof(this));
+    FSeek(FTell() + readNextIntBytes());
+
+};
+
+typedef struct REFS_LOG_START(int curr_page) {
+
+    REFS_ENTRY_HEADER entry<name = "REFS_ENTRY_HEADER">;
+    REFS_LOG_ENTRY_HEADER entryheader <name = "REFS_LOG_ENTRY_HEADER">;
+
+    if (entryheader.type == 1)
+    {
+        REFS_CONTROL_LOG controllog<name = "CONTROL_LOG">;
+        FSeek((curr_page + 1) * 0x1000);
+    }
+
+    else if (entryheader.type == 2) {
+
+        REFS_REDO_STRUCTURE_SIZE rls<name = "REDO_STRUCTURE_SIZE">;
+        REFS_REDO_LOG redolog<name = "REFS_REDO_LOG">;
+
+        while (FTell() < ((curr_page + 1) * 0x1000)) {
+
+            if (skipCheck1(12)) {
+                REFS_REDO_LOG redolog<name = "REFS_REDO_LOG">;
+            }
+
+            else if (skipCheck1(20)) {
+                REFS_REDO_STRUCTURE_SIZE rls<name = "REDO_STRUCTURE_SIZE">;
+                REFS_REDO_LOG redolog<name = "REFS_REDO_LOG">;
+            }
+
+            if (readNextIntBytes() == 0) {
+                FSeek((curr_page + 1) * 0x1000);
+            }
+        }
+    }
+};
+
+local int curr_page  = 0;
+
+while (!FEof()) {
+
+    if (isMLog()) {
+        curr_page = FTell() / 0x1000;
+        REFS_LOG_START refs(curr_page)<name = "REFS_LOG_START">;
+    }
+
+    else {
+        curr_page = FTell() / 0x1000;
+        FSeek((curr_page + 1) * 0x1000);
+    }
+}
+
+LittleEndian();
