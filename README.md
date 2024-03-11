@@ -19,6 +19,8 @@ You have two options: Either utilize it directly on the disk image or extract th
 
 - Execute the script.
 
+![alt text](assests/image-1.png)
+
 ![alt text](assests/image.png)
 
 
