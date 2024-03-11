@@ -1,8 +1,8 @@
 # ReFS-LogFile-010Editor
 
-Here is a template for the Resilient File System **LogFile** designed for use with the widely used Hex editor known as `010Editor`.
+I have recently published a [binary template](https://www.sweetscape.com/010editor/repository/templates/file_info.php?file=LogFile.bt) for the Resilient File System's LogFile, designed to be used with the popular hex editor, **`010Editor`**.
 
-This template provides you with the capability to interpret the following elements:
+ This template allows users to easily analyze and understand the structure of LogFile
 
 - ReFS Entry Header
 - ReFS Log Header
@@ -15,7 +15,7 @@ You have two options: Either utilize it directly on the disk image or extract th
   
 - Open the logfile or disk image.
 
-- Navigate to `Templates` -> `New Template` & paste the script `LogFile.bt`
+- Either download the template from the official repository or navigate to `Templates` -> `New Template` and paste the `LogFile.bt` script.
 
 - Execute the script.
 

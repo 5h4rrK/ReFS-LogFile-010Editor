@@ -1,3 +1,17 @@
+//------------------------------------------------
+//--- 010 Editor v13.0.2 Binary Template
+//
+//      File: LogFile.bt
+//   Authors: Sabhya Raj Mehta (5h4rrK)
+//   Version: 1.0
+//   Purpose: Develop a parsing template for Resilient File System LogFile
+//  Category: Drives
+//  ID Bytes: 4D 4C 6F 67
+//   History: 
+//   1.0 2024-03-10 Sabhya Raj Mehta: Initial release.
+//------------------------------------------------
+
+
 typedef enum <UINT64> {
     CONTROL = 1,
     DATA = 2
