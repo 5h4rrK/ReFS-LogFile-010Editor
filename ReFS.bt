@@ -13,9 +13,9 @@
 //------------------------------------------------
 
 /*
-References
-ARIN : https://github.com/horensic/ARIN
-ReFS Reverse Engineering  : https://www.sciencedirect.com/science/article/pii/S1742287619301252
+    References
+    ARIN : https://github.com/horensic/ARIN
+    ReFS Reverse Engineering  : https://www.sciencedirect.com/science/article/pii/S1742287619301252
 */
 
 // Global Variable
