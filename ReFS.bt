@@ -1,0 +1,230 @@
+//------------------------------------------------
+//--- 010 Editor v13.0.2 Binary Template
+//
+//      File: ReFS.bt
+//   Authors: Sabhya Raj Mehta
+//   GitHub : https://github.com/5h4rrK
+//   Version: 1.0
+//   Purpose: Template for parsing SuperBlock and Checkpoint of ReFS File System
+//  Category: Drives
+//  ID Bytes: 00 00 00 52 65 46 53 00 00 00 00
+//   History:
+//   1.0 2024-03-14 Sabhya Raj Mehta: Initial release
+//------------------------------------------------
+
+/*
+References
+ARIN : https://github.com/horensic/ARIN
+ReFS Reverse Engineering  : https://www.sciencedirect.com/science/article/pii/S1742287619301252
+*/
+
+// Global Variable
+local int keeptrack = 0;
+
+// FileSystem header
+typedef enum<UINT64>
+{
+	ReFS = 0x53466552
+} FILESYSTEM;
+
+// FileSystem blocks
+typedef enum<UINT32>
+{
+	SuperBlock = 0x42505553,
+	CheckPoint = 0x504b4843,
+	MSBPlus = 0x2b42534d
+} BLOCK;
+
+typedef struct
+{
+	UBYTE major<name = "Major",comment= "ReFS Major Version">;
+	UBYTE minor<name = "Minor",comment= "ReFS Minor Version">;
+} REFS_Version;
+
+typedef struct
+{
+	USHORT major<name = "Major", comment="ReFS Major Version">;
+	USHORT minor<name = "Minor", comment="ReFS Minor Version">;
+} CheckPoint_REFS_Version;
+
+// Meta Headers
+typedef struct
+{
+	// typedef char SIGNATURE[4];
+	BLOCK sig<name = "Signature">;
+	UINT32 unk<name = "Fixed">;
+	FSkip(0x8 + 0x10); // Unknown1 (8 Bytes) & Unknown2(16 Bytes)
+	UINT64 lcn1<name = "LCN1", comment = "This LCN points to this particular page itself">;
+	UINT64 lcn2<name = "LCN2">;
+	UINT64 lcn3<name = "LCN3">;
+	UINT64 lcn4<name = "LCN4">;
+	UINT64 objid<name = "_ObjID">;
+	UINT64 objId<name = "ObjID">;
+
+} META_HEADERS;
+
+// ReFS File System Volume Boot Record
+typedef struct
+{
+	typedef UBYTE JMP[3];
+	JMP jmpinstruction<name = "JmpInstruction">;
+	local char filesystem[8];
+	ReadBytes(filesystem, FTell(), 8);
+	if (Memcmp(filesystem, "ReFS", 8) == 0)
+	{
+		FILESYSTEM filesys<name = "FileSystem", fgcolor = 0x10C428, comment="ReFS Signature">;
+		typedef UBYTE UNKNOWN[5];
+		UNKNOWN unk<name = "Unknown1">;
+		typedef BYTE IDENTIFIER[4];
+		IDENTIFIER identifier<name = "FSRSIdentifier">;
+		USHORT Length<name = "Length">;
+		USHORT Checksum<name = "Checksum">;
+		UINT64 totnosectors<name = "TotalNoOfSectors">;
+		UINT32 bps<name = "BytesPerSector">;
+		UINT32 spc<name = "SectorPerCluster">;
+		REFS_Version ver<name = "ReFS Version">;
+		typedef UBYTE UnknownBuff[0x0e];
+		UnknownBuff unkbuff<name = "Unknown1">;
+		UINT64 serialno<name = "ReFSSerialNumber">;
+	}
+	else
+	{
+		FSeek(0);
+	}
+} VOLUME_BOOT_RECORD;
+
+// SuperBlock Structure
+typedef struct
+{
+	META_HEADERS supmeta<name = "SuperBlockMetaHeaders">;
+	GUID guid<name = "GUID">;
+	FSkip(0x10 * 0x06);
+	UINT64 firstcp<name = "PrimaryCheckPointLCN">;
+	UINT64 secondcp<name = "SecondaryCheckPointLCN">;
+	UINT64 lcn1dup<name = "LCN1", comment = "This LCN points to this particular superblock itself">;
+	UINT64 lcn2dup<name = "LCN2">;
+	UINT64 lcn3dup<name = "LCN3">;
+	UINT64 lcn4dup<name = "LCN4">;
+} SUPERBLOCK;
+
+// Attribute structure
+typedef struct
+{
+	UINT64 lcn1<name = "LCN1">;
+	UINT64 lcn2<name = "LCN2">;
+	UINT64 lcn3<name = "LCN3">;
+	UINT64 lcn4<name = "LCN4">;
+	UINT32 unk1<name = "Unknown1">;
+	UINT32 unk2<name = "Unknown2">;
+	UINT64 checksum<name = "CheckSum">;
+	typedef UBYTE ZEROBUFF[56];
+	ZEROBUFF padding<name = "Padding">;
+
+} ATTRIBUTE;
+
+// EntryArray for attributes
+typedef struct
+{
+	UINT32 elem<name = "Array">;
+	local int prev = FTell();
+	FSeek(0x1000 * (FTell() / 0x1000));
+	FSkip(elem);
+	keeptrack += 1;
+	switch (keeptrack)
+	{
+	case 1:
+		ATTRIBUTE attribute<name = "Object Table">;
+		break;
+	case 2:
+		ATTRIBUTE attribute<name = "UNKNOWN1">;
+		break;
+	case 3:
+		ATTRIBUTE attribute<name = "UNKNOWN2">;
+		break;
+	case 4:
+		ATTRIBUTE attribute<name = "AttributeList">;
+		break;
+	case 5:
+		ATTRIBUTE attribute<name = "DirectoryTree">;
+		break;
+	case 6:
+		ATTRIBUTE attribute<name = "UNKNOWN3">;
+		break;
+	case 7:
+		ATTRIBUTE attribute<name = "UNKNOWN4">;
+		break;
+	case 8:
+		ATTRIBUTE attribute<name = "ContainerTable">;
+		break;
+	case 9:
+		ATTRIBUTE attribute<name = "ContainerTableDup">;
+		break;
+	case 10:
+		ATTRIBUTE attribute<name = "UNKNOWN5">;
+		break;
+	case 11:
+		ATTRIBUTE attribute<name = "AllocatorLarge">;
+		break;
+	case 12:
+		ATTRIBUTE attribute<name = "UNKNOWN6">;
+		break;
+	case 13:
+		ATTRIBUTE attribute<name = "UNKNOWN7">;
+		break;
+	}
+	FSeek(prev);
+} EntryArray;
+
+// CheckPoint Structure
+typedef struct
+{
+	META_HEADERS supmeta<name = "CheckPointMetaHeaders">;
+	FSkip(0x04);
+	CheckPoint_REFS_Version ver<name = "ReFS_Version">;
+	UINT32 entryoff<name = "EntryOffset">;
+	UINT32 entrysz<name = "EntrySize">;
+	UINT64 blockno<name = "BlockNumber">;
+	FSkip(0x28);
+	UINT32 noofentries<name = "NumberOfEntries">;
+	EntryArray entries[noofentries]<name = "ArrayEntries", optimize = false>;
+	FSkip(0x08);
+	UINT64 lcn1dup<name = "LCN1", comment = "This LCN points to this particular chekpoint itself">;
+	UINT64 lcn2dup<name = "LCN2">;
+	UINT64 lcn3dup<name = "LCN3">;
+	UINT64 lcn4dup<name = "LCN4">;
+} CHECKPOINT;
+
+VOLUME_BOOT_RECORD vbr<name = "VOLUME_BOOT_RECORD", bgcolor = 0xadcda>;
+FSeek(0x1e * 0x1000);
+SUPERBLOCK supb<name = "SuperBlock">;
+FSeek(0x1000 * supb.firstcp);
+CHECKPOINT prichkp<name = "PrimaryCheckPoint">;
+FSeek(0x1000 * supb.secondcp);
+keeptrack = 0;
+CHECKPOINT secchkp<name = "SecondaryCheckPoint">;
+FSeek(FileSize() - 0x10000000); // Navigate swiftly to file end for faster parsing.
+
+local char signature[4];
+local UINT64 prev_pos = 0;
+
+while (!FEof())
+{
+	ReadBytes(signature, FTell(), 4);
+	if (Memcmp(signature, "SUPB", 4) == 0)
+	{
+		prev_pos = FTell();
+		SUPERBLOCK supb<name = "SuperBlock">;
+		FSeek(0x1000 * supb.firstcp);
+		keeptrack = 0;
+		CHECKPOINT prichkp<name = "PrimaryCheckPoint">;
+		FSeek(0x1000 * supb.secondcp);
+		keeptrack = 0;
+		CHECKPOINT secchkp<name = "SecondaryCheckPoint">;
+		FSeek(prev_pos + 0x1000);
+	}
+	else
+	{
+		FSkip(0x1000);
+	}
+}
+LittleEndian();
