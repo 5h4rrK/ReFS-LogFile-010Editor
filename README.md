@@ -2,6 +2,7 @@
 
 I have recently released a binary template for the [Resilient File System](https://www.sweetscape.com/010editor/repository/templates/file_info.php?file=ReFS.bt) and [ReFS LogFile](https://www.sweetscape.com/010editor/repository/templates/file_info.phpfile=LogFile.bt), designed to be used with the popular hex editor, **`010Editor`**.
 
+
  This template allows users to easily analyze and understand the structure of LogFile
 
 - ReFS Entry Header
