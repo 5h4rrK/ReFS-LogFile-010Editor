@@ -1,15 +1,17 @@
 //------------------------------------------------
 //--- 010 Editor v13.0.2 Binary Template
 //
-//      File: ReFS.bt
-//   Authors: Sabhya Raj Mehta
-//   GitHub : https://github.com/5h4rrK
-//   Version: 1.0
-//   Purpose: Template for parsing SuperBlock and Checkpoint of ReFS File System
-//  Category: Drives
-//  ID Bytes: 00 00 00 52 65 46 53 00 00 00 00
-//   History:
-//   1.0 2024-03-14 Sabhya Raj Mehta: Initial release
+//    	  	File: ReFS.bt
+//  	  Author: Sabhya Raj Mehta @teambi0s 
+//  Organization: teambi0s https://bi0s.in/
+//  	 GitHub : https://github.com/5h4rrK
+//  	 Version: 1.1
+//   	 Purpose: Template for parsing SuperBlock, Checkpoint, MinStoreB+ of ReFS File System
+//  	Category: Drives
+//  	ID Bytes: 00 00 00 52 65 46 53 00 00 00 00
+//   	 History:
+//   			1.1 2024-03-29 Sabhya Raj Mehta: Parses MinStoreB+ node
+//   			1.0 2024-03-14 Sabhya Raj Mehta: Initial release
 //------------------------------------------------
 
 /*
@@ -17,6 +19,16 @@
     ARIN : https://github.com/horensic/ARIN
     ReFS Reverse Engineering  : https://www.sciencedirect.com/science/article/pii/S1742287619301252
 */
+
+// Auto Color Generation
+
+int64 auto_color(){
+	local int64 val = Random(100000);
+	if (val < 10000){
+		val += 10000;
+	}
+	return val;
+}
 
 // Global Variable
 local int keeptrack = 0;
@@ -37,55 +49,79 @@ typedef enum<UINT32>
 
 typedef struct
 {
-	UBYTE major<name = "Major",comment= "ReFS Major Version">;
-	UBYTE minor<name = "Minor",comment= "ReFS Minor Version">;
+	UBYTE major<name = "Major",comment= "ReFS Major Version", bgcolor=auto_color()>;
+	UBYTE minor<name = "Minor",comment= "ReFS Minor Version", bgcolor=auto_color()>;
 } REFS_Version;
 
 typedef struct
 {
-	USHORT major<name = "Major", comment="ReFS Major Version">;
-	USHORT minor<name = "Minor", comment="ReFS Minor Version">;
+	USHORT major<name = "Major", comment="ReFS Major Version", bgcolor=auto_color()>;
+	USHORT minor<name = "Minor", comment="ReFS Minor Version", bgcolor=auto_color()>;
 } CheckPoint_REFS_Version;
 
 // Meta Headers
 typedef struct
 {
 	// typedef char SIGNATURE[4];
-	BLOCK sig<name = "Signature">;
-	UINT32 unk<name = "Fixed">;
-	FSkip(0x8 + 0x10); // Unknown1 (8 Bytes) & Unknown2(16 Bytes)
-	UINT64 lcn1<name = "LCN1", comment = "This LCN points to this particular page itself">;
-	UINT64 lcn2<name = "LCN2">;
-	UINT64 lcn3<name = "LCN3">;
-	UINT64 lcn4<name = "LCN4">;
-	UINT64 objid<name = "_ObjID">;
-	UINT64 objId<name = "ObjID">;
+	BLOCK sig<name = "Signature", bgcolor=auto_color()>;
+	UINT32 unk<name = "Fixed", bgcolor=auto_color()>;
+	UINT32 zero<name = "AlwaysZero", bgcolor=auto_color()>;
+	UINT32 volsig<name = "VolumeSignature", bgcolor=auto_color()>;
+	typedef BYTE PAGERECENCY[16];
+	PAGERECENCY pgrec<name="PageRecency", bgcolor=auto_color()>;
+	UINT64 lcn1<name = "LCN1", comment = "This LCN points to this particular page itself", bgcolor=auto_color()>;
+	UINT64 lcn2<name = "LCN2", bgcolor=auto_color()>;
+	UINT64 lcn3<name = "LCN3", bgcolor=auto_color()>;
+	UINT64 lcn4<name = "LCN4", bgcolor=auto_color()>;
+	UINT64 tablehi<name = "TableIdentifierHigh", bgcolor=auto_color()>;
+	UINT64 tablelo<name = "TableIdentifierLow", bgcolor=auto_color()>;
 
 } META_HEADERS;
+
+typedef struct(UINT64 desclen) {
+	UINT64 LCN1<name="FirstLCN", bgcolor=auto_color()>;
+	UINT64 LCN2<name="SecondLCN", bgcolor=auto_color()>;
+	UINT64 LCN3<name="ThirdLCN", bgcolor=auto_color()>;
+	UINT64 LCN4<name="FourthLCN", bgcolor=auto_color()>;
+	FSkip(0x02);
+	UBYTE checksumtype<name="ChecksumType", bgcolor=auto_color()>;
+	UBYTE checksumoffset<name="ChecksumOffset", bgcolor=auto_color()>;
+	UINT16 checksumlen<name="CheckSumLength", bgcolor=auto_color()>;
+	FSkip(0x02);
+	if(checksumtype == 2){
+	UINT64 chksum<name="CRC64-CheckSum", bgcolor=auto_color()>;
+	}
+	else if(checksumtype == 1){
+		UINT32 chksum<name="CRC32-CheckSum", bgcolor=auto_color()>;
+	}
+	local UINT64 rem = desclen - (FTell() - startof(this));
+	BYTE buff[rem];
+} SELF_DESCRIPTOR ;
 
 // ReFS File System Volume Boot Record
 typedef struct
 {
 	typedef UBYTE JMP[3];
-	JMP jmpinstruction<name = "JmpInstruction">;
+	JMP jmpinstruction<name = "JmpInstruction", bgcolor=auto_color()>;
 	local char filesystem[8];
 	ReadBytes(filesystem, FTell(), 8);
 	if (Memcmp(filesystem, "ReFS", 8) == 0)
 	{
-		FILESYSTEM filesys<name = "FileSystem", fgcolor = 0x10C428, comment="ReFS Signature">;
+		FILESYSTEM filesys<name = "FileSystem", bgcolor = 0x10C428, comment="ReFS Signature", bgcolor=auto_color()>;
 		typedef UBYTE UNKNOWN[5];
-		UNKNOWN unk<name = "Unknown1">;
+		UNKNOWN unk<name = "Unknown1", bgcolor=auto_color()>;
 		typedef BYTE IDENTIFIER[4];
-		IDENTIFIER identifier<name = "FSRSIdentifier">;
-		USHORT Length<name = "Length">;
-		USHORT Checksum<name = "Checksum">;
-		UINT64 totnosectors<name = "TotalNoOfSectors">;
-		UINT32 bps<name = "BytesPerSector">;
-		UINT32 spc<name = "SectorPerCluster">;
-		REFS_Version ver<name = "ReFS Version">;
+		IDENTIFIER identifier<name = "FSRSIdentifier", bgcolor=auto_color()>;
+		USHORT Length<name = "Length", bgcolor=auto_color()>;
+		USHORT Checksum<name = "Checksum", bgcolor=auto_color()>;
+		UINT64 totnosectors<name = "TotalNoOfSectors", bgcolor=auto_color()>;
+		UINT32 bps<name = "BytesPerSector", bgcolor=auto_color()>;
+		UINT32 spc<name = "SectorPerCluster", bgcolor=auto_color()>;
+		REFS_Version ver<name = "ReFS Version", bgcolor=auto_color()>;
 		typedef UBYTE UnknownBuff[0x0e];
-		UnknownBuff unkbuff<name = "Unknown1">;
-		UINT64 serialno<name = "ReFSSerialNumber">;
+		UnknownBuff unkbuff<name = "Unknown1", bgcolor=auto_color()>;
+		UINT64 serialno<name = "ReFSSerialNumber", bgcolor=auto_color()>;
+		UINT64 bpc<name = "BytesPerContainer", bgcolor=auto_color()>;
 	}
 	else
 	{
@@ -96,135 +132,237 @@ typedef struct
 // SuperBlock Structure
 typedef struct
 {
-	META_HEADERS supmeta<name = "SuperBlockMetaHeaders">;
-	GUID guid<name = "GUID">;
-	FSkip(0x10 * 0x06);
-	UINT64 firstcp<name = "PrimaryCheckPointLCN">;
-	UINT64 secondcp<name = "SecondaryCheckPointLCN">;
-	UINT64 lcn1dup<name = "LCN1", comment = "This LCN points to this particular superblock itself">;
-	UINT64 lcn2dup<name = "LCN2">;
-	UINT64 lcn3dup<name = "LCN3">;
-	UINT64 lcn4dup<name = "LCN4">;
+	META_HEADERS supmeta<name = "SuperBlockMetaHeader", bgcolor=auto_color()>;
+	GUID guid<name = "GUID", bgcolor=auto_color()>;
+	FSkip(0x10);
+	UINT32 checkpointoff<name="CheckPointOffset", bgcolor=auto_color()>;
+	UINT32 noofcheckpoint<name="NoOfCheckPointEntry", bgcolor=auto_color()>;
+	UINT32 offsetselfdescriptor<name="SelfDescriptorOffset", bgcolor=auto_color()>;
+	UINT32 lenselfdescriptor<name="SelfDescriptorLength", bgcolor=auto_color()>;
+	FSeek(startof(this) + offsetselfdescriptor);
+	SELF_DESCRIPTOR selfdesc(lenselfdescriptor)<name="SelfDescriptor", bgcolor=auto_color()>;
+	FSeek(startof(this) + checkpointoff);
+	UINT64 firstcp<name = "PrimaryCheckPointLCN", bgcolor=auto_color()>;
+	UINT64 secondcp<name = "SecondaryCheckPointLCN", bgcolor=auto_color()>;
+	FSeek(startof(this) + offsetselfdescriptor + lenselfdescriptor);
 } SUPERBLOCK;
 
 // Attribute structure
 typedef struct
 {
-	UINT64 lcn1<name = "LCN1">;
-	UINT64 lcn2<name = "LCN2">;
-	UINT64 lcn3<name = "LCN3">;
-	UINT64 lcn4<name = "LCN4">;
-	UINT32 unk1<name = "Unknown1">;
-	UINT32 unk2<name = "Unknown2">;
-	UINT64 checksum<name = "CheckSum">;
+	UINT64 lcn1<name="LCN1", bgcolor=auto_color()>;
+	UINT64 lcn2<name="LCN2", bgcolor=auto_color()>;
+	UINT64 lcn3<name="LCN3", bgcolor=auto_color()>;
+	UINT64 lcn4<name="LCN4", bgcolor=auto_color()>;
+	FSkip(0x02);
+	UBYTE checksumtype<name="ChecksumType", bgcolor=auto_color()>;
+	UBYTE checksumoffset<name="ChecksumOffset", bgcolor=auto_color()>;
+	UINT16 checksumlen<name="CheckSumLength", bgcolor=auto_color()>;
+	FSkip(0x02);
+	if(checksumtype == 2){
+	UINT64 chksum<name="CRC64-CheckSum", bgcolor=auto_color()>;
+	}
+	else if(checksumtype == 1){
+		UINT32 chksum<name="CRC32-CheckSum", bgcolor=auto_color()>;
+	}
 	typedef UBYTE ZEROBUFF[56];
-	ZEROBUFF padding<name = "Padding">;
+	ZEROBUFF padding<name = "Padding", bgcolor=auto_color()>;
 
 } ATTRIBUTE;
 
-// EntryArray for attributes
-typedef struct
-{
-	UINT32 elem<name = "Array">;
-	local int prev = FTell();
-	FSeek(0x1000 * (FTell() / 0x1000));
+typedef struct {
+	UINT16 off<name="Offset", bgcolor=auto_color()>;
+	UINT16 unk<name="Ignore", bgcolor=auto_color()>;
+}OFFSETENTRY;
+
+typedef enum<BYTE> {
+	InnerNode = 0x01,
+	RootNode = 0x02,
+	StreamNode = 0x03,
+}NodeType;
+
+typedef struct(UINT32 start_pos, UINT32 rootsize) {
+	UINT32 size<name="DataStartOffset", bgcolor=auto_color()>;
+	UINT32 dataendoff<name="DataAreaEndOffset", bgcolor=auto_color()>;
+	UINT32 freebuff<name="FreeBuff", bgcolor=auto_color()>;
+	BYTE height<name="Height", bgcolor=auto_color()>;
+	NodeType ntype<name="NodeType", bgcolor=auto_color()>;
+	UINT16 unused1<name="UnUsed", bgcolor=auto_color()>;
+	UINT32 keyindxoff<name="KeyIndexOffset", bgcolor=auto_color()>;
+	UINT32 keycount<name="KeysCount", bgcolor=auto_color()>;
+	UINT64 unused2<name="UnUsed", bgcolor=auto_color()>;
+	UINT32 end<name="KeyIndexEnd", bgcolor=auto_color()>;
+	UINT32 align<name="Alignment", bgcolor=auto_color()>;
+}INDEX_HEADER;
+
+typedef enum<UINT16> {
+	RightMost = 0x02,
+	DeletedEntry = 0x04,
+	StreamIndexEntry = 0x40,
+} Flags;
+
+typedef struct {
+	local UINT64 start_pos = FTell() ;
+	UINT32 indxentlen<name="IndxEntryLen", bgcolor=auto_color()>;
+	UINT16 keyoff<name="KeyOffset", bgcolor=auto_color()>;
+	UINT16 keylen<name="KeyLen", bgcolor=auto_color()>;
+	Flags flag<name="Flags", bgcolor=auto_color()>;
+	UINT16 valoff<name="ValOffset", bgcolor=auto_color()>;
+	UINT16 vallen<name="ValLen", bgcolor=auto_color()>;
+	FSeek(start_pos + keyoff);
+	char key[keylen]<name="Key", bgcolor=auto_color()>;
+	FSeek(start_pos + valoff);
+	char value[vallen]<name="Value", bgcolor=auto_color()>;
+	FSeek(start_pos + indxentlen);
+} INDEX_ENTRY_STRUCTURE;
+
+
+typedef struct {
+	local UINT64 start_pos = FTell();
+	META_HEADERS node<name="PageHeader", bgcolor=auto_color()>;
+	UINT32 rootsize<name="RootSize", bgcolor=auto_color()>;
+	UINT16 fixed<name="Fixed(0x28)", bgcolor=auto_color()>;
+	UINT16 unk1<name="Unknown", bgcolor=auto_color()>;
+	UINT16 unk2<name="Unknown", bgcolor=auto_color()>;
+	UINT16 unk3<name="Unknown", bgcolor=auto_color()>;
+	UINT16 schema<name="TableSchema", bgcolor=auto_color()>;
+	UINT16 unk4<name="Unknown", bgcolor=auto_color()>;
+	UINT16 schemadup<name="TableSchema", bgcolor=auto_color()>;
+	UINT16 unk5<name="Unknown", bgcolor=auto_color()>;
+	UINT16 unk6<name="Unknown", bgcolor=auto_color()>;
+	UINT16 unk7<name="Unknown", bgcolor=auto_color()>;
+	UINT64 noofextends<name="ExtendCount", bgcolor=auto_color()>;
+	UINT64 noofrows<name="RowsCount", bgcolor=auto_color()>;
+	typedef char COMPONENT[512];
+	COMPONENT comp<name="Component">;
+	FSeek(start_pos + 0x50 + rootsize);
+	INDEX_HEADER indxhdr(start_pos, rootsize)<name="IndexHeader", bgcolor=auto_color()>;
+	FSeek(start_pos + 0x50 + rootsize + indxhdr.keyindxoff);
+	OFFSETENTRY entries[indxhdr.keycount]<name="KeyEntries", optimize=false>;
+	FSeek(start_pos + 0x50 + rootsize + indxhdr.size);
+	INDEX_ENTRY_STRUCTURE indxentrystruct[indxhdr.keycount]<name="IndexEntry", optimize=false>;
+
+}ROOT_NODE;
+
+
+// GLOBALROOTNODE 
+typedef struct {
+
+	UINT32 elem<name = "GlobalRootNodeElem", bgcolor=auto_color()>;
+	local UINT64 prev = FTell();
+	FSeek(cluster_size * (FTell() / cluster_size));
 	FSkip(elem);
 	keeptrack += 1;
 	switch (keeptrack)
 	{
 	case 1:
-		ATTRIBUTE attribute<name = "Object Table">;
+		ATTRIBUTE attribute<name = "Object Table", bgcolor=auto_color()>;
 		break;
 	case 2:
-		ATTRIBUTE attribute<name = "UNKNOWN1">;
+		ATTRIBUTE attribute<name = "MediumAllocatorTable", bgcolor=auto_color()>;
 		break;
 	case 3:
-		ATTRIBUTE attribute<name = "UNKNOWN2">;
+		ATTRIBUTE attribute<name = "ContainerAllocatorTable", bgcolor=auto_color()>;
 		break;
 	case 4:
-		ATTRIBUTE attribute<name = "AttributeList">;
+		ATTRIBUTE attribute<name = "SchemaTable", bgcolor=auto_color()>;
 		break;
 	case 5:
-		ATTRIBUTE attribute<name = "DirectoryTree">;
+		ATTRIBUTE attribute<name = "ParentChildTable", bgcolor=auto_color()>;
 		break;
 	case 6:
-		ATTRIBUTE attribute<name = "UNKNOWN3">;
+		ATTRIBUTE attribute<name = "ObjectIDDup", bgcolor=auto_color()>;
 		break;
 	case 7:
-		ATTRIBUTE attribute<name = "UNKNOWN4">;
+		ATTRIBUTE attribute<name = "BlockCountTable", bgcolor=auto_color()>;
 		break;
 	case 8:
-		ATTRIBUTE attribute<name = "ContainerTable">;
+		ATTRIBUTE attribute<name = "ContainerTable", bgcolor=auto_color()>;
+		local UINT64 prev_pos = FTell();
+		FSeek(attribute.lcn1 * (cluster_size ));
+		ROOT_NODE cn1 <name="ContainerNode", bgcolor=auto_color()>; 
+		FSeek(prev_pos);
 		break;
 	case 9:
-		ATTRIBUTE attribute<name = "ContainerTableDup">;
+		ATTRIBUTE attribute<name = "ContainerTableDup", bgcolor=auto_color()>;
+		local UINT64 prev_pos = FTell();
+		FSeek(attribute.lcn1 * (cluster_size ));
+		ROOT_NODE cn1 <name="ContainerDupNode", bgcolor=auto_color()>; 
+		FSeek(prev_pos);
 		break;
 	case 10:
-		ATTRIBUTE attribute<name = "UNKNOWN5">;
+		ATTRIBUTE attribute<name = "SchemaTableDup", bgcolor=auto_color()>;
 		break;
 	case 11:
-		ATTRIBUTE attribute<name = "AllocatorLarge">;
+		ATTRIBUTE attribute<name = "ContainerIndexTable", bgcolor=auto_color()>;
 		break;
 	case 12:
-		ATTRIBUTE attribute<name = "UNKNOWN6">;
+		ATTRIBUTE attribute<name = "IntegrityStateTable", bgcolor=auto_color()>;
 		break;
 	case 13:
-		ATTRIBUTE attribute<name = "UNKNOWN7">;
+		ATTRIBUTE attribute<name = "SmallAllocatorTable", bgcolor=auto_color()>;
+		local UINT64 prev_pos = FTell();
+		FSeek(attribute.lcn1 * (cluster_size ));
+		ROOT_NODE cn1 <name="SmallAllocatorNode", bgcolor=auto_color()>; 
+		FSeek(prev_pos);
 		break;
 	}
 	FSeek(prev);
-} EntryArray;
+
+} GLOBALROOTNODE;
 
 // CheckPoint Structure
-typedef struct
-{
-	META_HEADERS supmeta<name = "CheckPointMetaHeaders">;
+typedef struct {
+	META_HEADERS chkpmeta<name = "CheckPointMetaHeaders", bgcolor=auto_color()>;
 	FSkip(0x04);
-	CheckPoint_REFS_Version ver<name = "ReFS_Version">;
-	UINT32 entryoff<name = "EntryOffset">;
-	UINT32 entrysz<name = "EntrySize">;
-	UINT64 blockno<name = "BlockNumber">;
+	CheckPoint_REFS_Version ver<name = "ReFS_Version", bgcolor=auto_color()>;
+	UINT32 offsetselfdescriptor<name="SelfDescriptorOffset", bgcolor=auto_color()>;
+	UINT32 lenselfdescriptor<name="SelfDescriptorLength", bgcolor=auto_color()>;
+	local uint64 prev_pos = FTell() & 0xff;
+	FSeek(startof(this) + offsetselfdescriptor);
+	SELF_DESCRIPTOR selfdesc(lenselfdescriptor)<name="SelfDescriptor", bgcolor=auto_color()>;
+	FSeek((startof(this)) + prev_pos);
+	UINT64 pagrec<name="PageRecency", bgcolor=auto_color()>;
 	FSkip(0x28);
-	UINT32 noofentries<name = "NumberOfEntries">;
-	EntryArray entries[noofentries]<name = "ArrayEntries", optimize = false>;
+	UINT32 noofentries<name = "NumberOfEntries", bgcolor=auto_color()>;
+	GLOBALROOTNODE entries[noofentries]<name = "GlobalRootNodeEntry", optimize = false>;
 	FSkip(0x08);
-	UINT64 lcn1dup<name = "LCN1", comment = "This LCN points to this particular chekpoint itself">;
-	UINT64 lcn2dup<name = "LCN2">;
-	UINT64 lcn3dup<name = "LCN3">;
-	UINT64 lcn4dup<name = "LCN4">;
+	FSeek(entries.prev_pos);
 } CHECKPOINT;
 
-VOLUME_BOOT_RECORD vbr<name = "VOLUME_BOOT_RECORD", bgcolor = 0xadcda>;
-FSeek(0x1e * 0x1000);
-SUPERBLOCK supb<name = "SuperBlock">;
-FSeek(0x1000 * supb.firstcp);
-CHECKPOINT prichkp<name = "PrimaryCheckPoint">;
-FSeek(0x1000 * supb.secondcp);
-keeptrack = 0;
-CHECKPOINT secchkp<name = "SecondaryCheckPoint">;
-FSeek(FileSize() - 0x10000000); // Navigate swiftly to file end for faster parsing.
 
-local char signature[4];
-local UINT64 prev_pos = 0;
+typedef struct {
+	VOLUME_BOOT_RECORD vbr<name = "VolumeBootRecord", bgcolor = 0xadcda>;
+	local uint64 cluster_size = vbr.spc * vbr.bps;
+	FSeek(0x1e * cluster_size);
+	SUPERBLOCK supb<name = "SuperBlock[0]" >;
+	FSeek(cluster_size * supb.firstcp);
+	CHECKPOINT prichkp<name = "PrimaryCheckPoint">;
+	FSeek(cluster_size * supb.secondcp);
+	keeptrack = 0;
+	CHECKPOINT secchkp<name = "SecondaryCheckPoint">;
 
-while (!FEof())
-{
-	ReadBytes(signature, FTell(), 4);
-	if (Memcmp(signature, "SUPB", 4) == 0)
-	{
-		prev_pos = FTell();
-		SUPERBLOCK supb<name = "SuperBlock">;
-		FSeek(0x1000 * supb.firstcp);
-		keeptrack = 0;
-		CHECKPOINT prichkp<name = "PrimaryCheckPoint">;
-		FSeek(0x1000 * supb.secondcp);
-		keeptrack = 0;
-		CHECKPOINT secchkp<name = "SecondaryCheckPoint">;
-		FSeek(prev_pos + 0x1000);
-	}
-	else
-	{
-		FSkip(0x1000);
-	}
-}
+	FSeek(((vbr.totnosectors / vbr.spc) -3 ) * cluster_size );
+	SUPERBLOCK supb2<name = "SuperBlock[1]">;
+	FSeek(cluster_size * supb2.firstcp);
+	keeptrack = 0;
+	CHECKPOINT prichkp2<name = "PrimaryCheckPoint">;
+	FSeek(cluster_size * supb2.secondcp);
+	keeptrack = 0;
+	CHECKPOINT secch2kp<name = "SecondaryCheckPoint">;
+
+	FSeek(((vbr.totnosectors / vbr.spc) -2) * cluster_size );
+	SUPERBLOCK supb3<name = "SuperBlock[2]">;
+	FSeek(cluster_size * supb3.firstcp);
+	keeptrack = 0;
+	CHECKPOINT prichkp3<name = "PrimaryCheckPoint">;
+	FSeek(cluster_size * supb3.secondcp);
+	keeptrack = 0;
+	CHECKPOINT secch3kp<name = "SecondaryCheckPoint">;
+	FSeek(((vbr.totnosectors / vbr.spc) ) * cluster_size);
+}ReFSFileSystem;
+
+local UINT32 cluster_size = 0;
+ReFSFileSystem refs<name="ReFSFileSystem">;
+
 LittleEndian();
